@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -8,7 +9,7 @@ use crate::error::Error;
 use crate::module::GenericModule;
 
 pub struct Manager {
-    modules: HashMap<String, Rc<dyn GenericModule>>
+    modules: HashMap<String, Rc<RefCell<dyn GenericModule>>>
 }
 
 impl Manager {
@@ -18,7 +19,7 @@ impl Manager {
         }
     }
 
-    pub fn register(&mut self, name: String, module: Rc<dyn GenericModule>) -> Result<(), Error> {
+    pub fn register(&mut self, name: String, module: Rc<RefCell<dyn GenericModule>>) -> Result<(), Error> {
         match self.modules.insert(name.clone(), module) {
             Some(_) => Err(Error::ModuleAlreadyRegistered { module: name }),
             None => Ok(())
@@ -32,8 +33,7 @@ impl Manager {
             match &vals[..] {
                 [(module_name, payload)] => {
                     if let Some(module) = self.modules.get(module_name) {
-                        module.deref().execute_value(payload)
-                        // module.execute_value(payload)
+                        module.borrow_mut().execute_value(payload)
                     } else {
                         let err = Error::NotFoundError { module: module_name.to_string() };
                         Err(format!("{:?}", err))
