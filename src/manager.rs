@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ops::Deref;
 use std::rc::Rc;
 use serde_json::Value;
 use serde_json::Value::Object;
@@ -34,6 +33,30 @@ impl Manager {
                 [(module_name, payload)] => {
                     if let Some(module) = self.modules.get(module_name) {
                         module.borrow_mut().execute_value(payload)
+                    } else {
+                        let err = Error::NotFoundError { module: module_name.to_string() };
+                        Err(format!("{:?}", err))
+                    }
+                },
+                _ => {
+                    let err = Error::ParseError{ msg: Some("too many module payloads".to_string()) };
+                    return Err(format!("{:?}", err))
+                }
+            }
+        } else {
+            let err = Error::ParseError{ msg: None };
+            Err(format!("{:?}", err))
+        }
+    }
+
+    pub fn dispatch_query(&mut self, msg: &str) -> Result<Value, String> {
+        let val: Value = serde_json::from_str(msg).map_err(|e| e.to_string())?;
+        if let Object(obj) = val {
+            let vals: Vec<(String, Value)> = obj.into_iter().collect();
+            match &vals[..] {
+                [(module_name, payload)] => {
+                    if let Some(module) = self.modules.get(module_name) {
+                        module.borrow_mut().query_value(payload)
                     } else {
                         let err = Error::NotFoundError { module: module_name.to_string() };
                         Err(format!("{:?}", err))
