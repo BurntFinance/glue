@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -28,19 +29,16 @@ pub trait GenericModule {
 // E: error type
 // IF: function that takes an m, returns result<r, e>
 // OF: the generic function that takes a Value, returns a Result<Value, String>
-pub fn make_generic<M, R, E, IF, OF>(f: &IF) -> OF
+pub fn make_generic<'a, M, R, E, IF, OF>(f: &'a IF) -> impl Fn(Value) -> Result<Value, String> + 'a
 where
     M: DeserializeOwned,
     R: Serialize,
-    E: From<serde_json::Error> + Serialize,
-    IF: Fn(M) -> Result<R, E>,
-    OF: Fn(Value) -> Result<Value, String>,
+    E: From<serde_json::Error> + Serialize + Display,
+    IF: Fn(M) -> Result<R, E> + 'a,
 {
-    let foo: OF = |msg: Value| -> Result<Value, String> {
-        let parsed_msg = serde_json::from_value(msg).map_err(|e| e.into())?;
-        let res = f(parsed_msg).map_err(|e| e.into())?;
+    |msg: Value| -> Result<Value, String> {
+        let parsed_msg = serde_json::from_value(msg).map_err(|e| e.to_string())?;
+        let res = f(parsed_msg).map_err(|e| e.to_string())?;
         serde_json::to_value(res).map_err(|e| e.to_string())
-    };
-
-    foo
+    }
 }
