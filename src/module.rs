@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 pub trait Module {
@@ -22,15 +23,24 @@ pub trait GenericModule {
     fn query_value(&self, msg: &Value) -> Result<Value, String>;
 }
 
-// pub fn make_generic<M, R, E, IF, OF>(f: IF) -> OF
-// where
-//     E: From<serde_json::Error> + Serialize,
-//     IF: Fn(M) -> Result<R, E>,
-//     OF: Fn(Value) -> Result<String, Value>,
-// {
-//     |msg: Value| -> Result<String, Value> {
-//         let parsed_msg = serde_json::from_value(msg).map_err(|e| e.into())?
-//         let res = f(parsed_msg)?
-//         serde_json::to_string()
-//     }
-// }
+// M: message type
+// R: response type
+// E: error type
+// IF: function that takes an m, returns result<r, e>
+// OF: the generic function that takes a Value, returns a Result<Value, String>
+pub fn make_generic<M, R, E, IF, OF>(f: &IF) -> OF
+where
+    M: DeserializeOwned,
+    R: Serialize,
+    E: From<serde_json::Error> + Serialize,
+    IF: Fn(M) -> Result<R, E>,
+    OF: Fn(Value) -> Result<Value, String>,
+{
+    let foo: OF = |msg: Value| -> Result<Value, String> {
+        let parsed_msg = serde_json::from_value(msg).map_err(|e| e.into())?;
+        let res = f(parsed_msg).map_err(|e| e.into())?;
+        serde_json::to_value(res).map_err(|e| e.to_string())
+    };
+
+    foo
+}
