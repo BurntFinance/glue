@@ -1,6 +1,6 @@
-mod error;
-mod manager;
-mod module;
+pub mod error;
+pub mod manager;
+pub mod module;
 
 #[cfg(test)]
 mod tests {
