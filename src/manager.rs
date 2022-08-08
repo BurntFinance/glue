@@ -1,3 +1,6 @@
+//! A module manager that dynamically dispatches messges sent to a contract
+//! to modules registered to it.
+
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
