@@ -4,6 +4,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use cosmwasm_std::Response;
 use serde_json::{Map, Value};
 use serde_json::Value::Object;
 use crate::error::Error;
@@ -28,7 +29,7 @@ impl Manager {
         }
     }
 
-    pub fn execute(&mut self, msg: &str) -> Result<Value, String> {
+    pub fn execute(&mut self, msg: &str) -> Result<Response, String> {
         let val: Value = serde_json::from_str(msg).map_err(|e| e.to_string())?;
         if let Object(obj) = val {
             let vals: Vec<(String, Value)> = obj.into_iter().collect();

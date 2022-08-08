@@ -1,6 +1,7 @@
 //! Traits for reusable, composable CosmWasm modules.
 
 use std::fmt::Display;
+use cosmwasm_std::Response;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -20,8 +21,6 @@ pub trait Module {
     /// that support multiple types of transaction, this will often times be
     /// a sum type.
     type ExecuteMsg: for<'a> Deserialize<'a>;
-    /// The response returned by transactions dispatched to this module.
-    type ExecuteResp: Serialize;
     /// The type of query messages this module can handle. For modules that
     /// support multiple queries, this will often times be a sum type.
     type QueryMsg: for<'a> Deserialize<'a>;
@@ -38,7 +37,7 @@ pub trait Module {
     fn instantiate(&self, msg: Self::InstantiateMsg) -> Result<Self::InstantiateResp, Self::Error>;
     /// The transaction handler for this module. Messages to this contract
     /// will be dispatched by the Manager.
-    fn execute(&self, msg: Self::ExecuteMsg) -> Result<Self::ExecuteResp, Self::Error>;
+    fn execute(&self, msg: Self::ExecuteMsg) -> Result<Response, Self::Error>;
     /// The query handler for this module. Messages to this contract will be
     /// dispatched by the Manager.
     fn query(&self, msg: Self::QueryMsg) -> Result<Self::QueryResp, Self::Error>;
@@ -54,22 +53,21 @@ pub trait GenericModule {
     /// A generic implementation of Module::instantiate
     fn instantiate_value(&mut self, msg: &Value) -> Result<Value, String>;
     /// A generic implementation of Module::execute
-    fn execute_value(&mut self, msg: &Value) -> Result<Value, String>;
+    fn execute_value(&mut self, msg: &Value) -> Result<Response, String>;
     /// A generic implementation of Module::query
     fn query_value(&self, msg: &Value) -> Result<Value, String>;
 }
 
 /// An implementation of GenericModule for all valid implementations of Module.
-impl<T, A, B, C, D, E, F, G> GenericModule for T
+impl<T, A, B, C, D, E, F> GenericModule for T
 where
     A: for <'de> Deserialize<'de>,
     B: Serialize,
     C: for <'de> Deserialize<'de>,
-    D: Serialize,
-    E: for <'de> Deserialize<'de>,
-    F: Serialize,
-    G: Display,
-    T: Module<InstantiateMsg = A, InstantiateResp = B, ExecuteMsg = C, ExecuteResp = D, QueryMsg = E, QueryResp = F, Error = G>,
+    D: for <'de> Deserialize<'de>,
+    E: Serialize,
+    F: Display,
+    T: Module<InstantiateMsg = A, InstantiateResp = B, ExecuteMsg = C, QueryMsg = D, QueryResp = E, Error = F>,
 {
     fn instantiate_value(&mut self, msg: &Value) -> Result<Value, String> {
         let parsed_msg = serde_json::from_value(msg.clone()).map_err(|e| e.to_string())?;
@@ -77,10 +75,9 @@ where
         serde_json::to_value(res).map_err(|e| e.to_string())
     }
 
-    fn execute_value(&mut self, msg: &Value) -> Result<Value, String> {
+    fn execute_value(&mut self, msg: &Value) -> Result<Response, String> {
         let parsed_msg = serde_json::from_value(msg.clone()).map_err(|e| e.to_string())?;
-        let res = self.execute(parsed_msg).map_err(|e| e.to_string())?;
-        serde_json::to_value(res).map_err(|e| e.to_string())
+        self.execute(parsed_msg).map_err(|e| e.to_string())
     }
 
     fn query_value(&self, msg: &Value) -> Result<Value, String> {
