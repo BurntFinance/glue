@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use serde_json::Value;
+use serde_json::{Map, Value};
 use serde_json::Value::Object;
 use crate::error::Error;
 
@@ -25,7 +25,7 @@ impl Manager {
         }
     }
 
-    pub fn dispatch_execution(&mut self, msg: &str) -> Result<Value, String> {
+    pub fn execute(&mut self, msg: &str) -> Result<Value, String> {
         let val: Value = serde_json::from_str(msg).map_err(|e| e.to_string())?;
         if let Object(obj) = val {
             let vals: Vec<(String, Value)> = obj.into_iter().collect();
@@ -49,7 +49,7 @@ impl Manager {
         }
     }
 
-    pub fn dispatch_query(&mut self, msg: &str) -> Result<Value, String> {
+    pub fn query(&mut self, msg: &str) -> Result<Value, String> {
         let val: Value = serde_json::from_str(msg).map_err(|e| e.to_string())?;
         if let Object(obj) = val {
             let vals: Vec<(String, Value)> = obj.into_iter().collect();
@@ -67,6 +67,27 @@ impl Manager {
                     return Err(format!("{:?}", err))
                 }
             }
+        } else {
+            let err = Error::ParseError{ msg: None };
+            Err(format!("{:?}", err))
+        }
+    }
+
+    pub fn initialize(&mut self, msgs: &str) -> Result<Value, String> {
+        let val: Value = serde_json::from_str(msgs).map_err(|e| e.to_string())?;
+        if let Object(obj) = val {
+            let vals: Vec<(String, Value)> = obj.into_iter().collect();
+            let mut result: Map<String, Value> = Map::new();
+            for (module_name, payload) in &vals {
+                if let Some(module) = self.modules.get(module_name) {
+                    let module_result = module.borrow_mut().instantiate_value(payload)?;
+                    result.insert(module_name.clone(), module_result);
+                } else {
+                    let err = Error::NotFoundError { module: module_name.to_string() };
+                    return Err(format!("{:?}", err))
+                }
+            }
+            Ok(Object(result))
         } else {
             let err = Error::ParseError{ msg: None };
             Err(format!("{:?}", err))
