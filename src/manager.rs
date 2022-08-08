@@ -1,4 +1,4 @@
-//! A module manager that dynamically dispatches messges sent to a contract
+//! A module manager that dynamically dispatches messages sent to a contract
 //! to modules registered to it.
 
 use std::cell::RefCell;
@@ -11,17 +11,24 @@ use crate::error::Error;
 
 use crate::module::GenericModule;
 
+/// A struct that will dynamically dispatch messages to modules registered
+/// within it.
 pub struct Manager {
     modules: HashMap<String, Rc<RefCell<dyn GenericModule>>>
 }
 
 impl Manager {
+    /// Create a new Manager with no modules registered to it.
     pub fn new() -> Self {
         Manager {
             modules: HashMap::new(),
         }
     }
 
+    /// Register a module, `module`, to the manager under the name `name`.
+    /// Entities interacting with the manager can address messages to this
+    /// module by wrapping the payload in a root object with a key of `name`
+    /// with the associated value, the payload.
     pub fn register(&mut self, name: String, module: Rc<RefCell<dyn GenericModule>>) -> Result<(), Error> {
         match self.modules.insert(name.clone(), module) {
             Some(_) => Err(Error::ModuleAlreadyRegistered { module: name }),
@@ -29,6 +36,8 @@ impl Manager {
         }
     }
 
+    /// Dispatch a JSON-encoded execute message to the appropriate module
+    /// registered within the `Manager` instance.
     pub fn execute(&mut self, msg: &str) -> Result<Response, String> {
         let val: Value = serde_json::from_str(msg).map_err(|e| e.to_string())?;
         if let Object(obj) = val {
@@ -53,6 +62,8 @@ impl Manager {
         }
     }
 
+    /// Dispatch a JSON-encoded query message to the appropriate module
+    /// registered within the `Manager` instance.
     pub fn query(&mut self, msg: &str) -> Result<Value, String> {
         let val: Value = serde_json::from_str(msg).map_err(|e| e.to_string())?;
         if let Object(obj) = val {
@@ -77,6 +88,8 @@ impl Manager {
         }
     }
 
+    /// Dispatch JSON-encoded instantiate messages to modules registered within
+    /// the Manager.
     pub fn initialize(&mut self, msgs: &str) -> Result<Value, String> {
         let val: Value = serde_json::from_str(msgs).map_err(|e| e.to_string())?;
         if let Object(obj) = val {
