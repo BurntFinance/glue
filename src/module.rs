@@ -19,7 +19,7 @@ pub trait Module {
 }
 
 pub trait GenericModule {
-    fn instantiate_value(&mut self, msg: &Value);
+    fn instantiate_value(&mut self, msg: &Value) -> Result<Value, String>;
     fn execute_value(&mut self, msg: &Value) -> Result<Value, String>;
     fn query_value(&self, msg: &Value) -> Result<Value, String>;
 }
