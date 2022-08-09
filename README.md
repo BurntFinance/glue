@@ -1,6 +1,3 @@
 # glue
-_A library that enables composability and reuse withing CosmWasm contracts_
 
-## Premise
-
-## Usage
+For documentation, run `cargo doc --open`.
