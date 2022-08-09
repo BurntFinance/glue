@@ -1,9 +1,9 @@
 //! Traits for reusable, composable CosmWasm modules.
 
-use std::fmt::Display;
-use cosmwasm_std::Response;
+use cosmwasm_std::{Binary, Response, StdError, StdResult};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::fmt::Display;
 
 /// A well typed CosmWasm module
 ///
@@ -55,19 +55,26 @@ pub trait GenericModule {
     /// A generic implementation of Module::execute
     fn execute_value(&mut self, msg: &Value) -> Result<Response, String>;
     /// A generic implementation of Module::query
-    fn query_value(&self, msg: &Value) -> Result<Value, String>;
+    fn query_value(&self, msg: &Value) -> StdResult<Binary>;
 }
 
 /// An implementation of GenericModule for all valid implementations of Module.
 impl<T, A, B, C, D, E, F> GenericModule for T
 where
-    A: for <'de> Deserialize<'de>,
+    A: for<'de> Deserialize<'de>,
     B: Serialize,
-    C: for <'de> Deserialize<'de>,
-    D: for <'de> Deserialize<'de>,
+    C: for<'de> Deserialize<'de>,
+    D: for<'de> Deserialize<'de>,
     E: Serialize,
     F: Display,
-    T: Module<InstantiateMsg = A, InstantiateResp = B, ExecuteMsg = C, QueryMsg = D, QueryResp = E, Error = F>,
+    T: Module<
+        InstantiateMsg = A,
+        InstantiateResp = B,
+        ExecuteMsg = C,
+        QueryMsg = D,
+        QueryResp = E,
+        Error = F,
+    >,
 {
     fn instantiate_value(&mut self, msg: &Value) -> Result<Value, String> {
         let parsed_msg = serde_json::from_value(msg.clone()).map_err(|e| e.to_string())?;
@@ -80,9 +87,12 @@ where
         self.execute(parsed_msg).map_err(|e| e.to_string())
     }
 
-    fn query_value(&self, msg: &Value) -> Result<Value, String> {
-        let parsed_msg = serde_json::from_value(msg.clone()).map_err(|e| e.to_string())?;
-        let res = self.query(parsed_msg).map_err(|e| e.to_string())?;
-        serde_json::to_value(res).map_err(|e| e.to_string())
+    fn query_value(&self, msg: &Value) -> StdResult<Binary> {
+        let parsed_msg = serde_json::from_value(msg.clone())
+            .map_err(|e| StdError::generic_err(e.to_string()))?;
+        let res = self
+            .query(parsed_msg)
+            .map_err(|e| StdError::generic_err(e.to_string()))?;
+        cosmwasm_std::to_binary(&res)
     }
 }
