@@ -1,0 +1,28 @@
+name: Build and publish rustdocs
+
+on:
+  push:
+    branches:
+      - master
+      - feat/generic-helpers
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Generate cargo docs
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+      - name: Add docs index
+        run: echo '<meta http-equiv="refresh" content="0; url=glue">' | tee target/doc/index.html
+      - name: Setup Pages
+        uses: actions/configure-pages@v1
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: 'target/doc/'
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@main
