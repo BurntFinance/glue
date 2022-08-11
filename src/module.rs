@@ -30,7 +30,7 @@ pub trait Module {
     /// conversion from serde_json::Error in order to properly wrap
     /// serialization and deserialization errors. This must implement
     /// Display for easy stringification.
-    type Error: Serialize + From<serde_json::Error> + Display;
+    type Error: From<serde_json::Error> + Display;
 
     /// The instantiate handler for the module. When a Manager with this
     /// module registered is instantiated, this method may be called.
