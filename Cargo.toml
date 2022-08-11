@@ -1,5 +1,5 @@
 [package]
-name = "glue"
+name = "burnt-glue"
 version = "0.1.2"
 edition = "2021"
 description = "A library that enables composability and reuse withing CosmWasm contracts."
