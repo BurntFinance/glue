@@ -2,6 +2,9 @@
 name = "glue"
 version = "0.1.2"
 edition = "2021"
+description = "A library that enables composability and reuse withing CosmWasm contracts."
+license = "MIT"
+authors = ["Cole Brown"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
