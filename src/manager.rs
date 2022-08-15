@@ -2,11 +2,12 @@
 //! to modules registered to it.
 
 use crate::error::Error;
-use cosmwasm_std::{Binary, Response, StdError, StdResult};
+use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult};
 use serde_json::Value::Object;
 use serde_json::{Map, Value};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::rc::Rc;
 
 use crate::module::GenericModule;
@@ -42,14 +43,23 @@ impl Manager {
 
     /// Dispatch a JSON-encoded execute message to the appropriate module
     /// registered within the `Manager` instance.
-    pub fn execute(&mut self, msg: &str) -> Result<Response, String> {
+    pub fn execute(
+        &mut self,
+        deps: &mut DepsMut,
+        env: Env,
+        info: MessageInfo,
+        msg: &str,
+    ) -> Result<Response, String> {
         let val: Value = serde_json::from_str(msg).map_err(|e| e.to_string())?;
         if let Object(obj) = val {
             let vals: Vec<(String, Value)> = obj.into_iter().collect();
             match &vals[..] {
                 [(module_name, payload)] => {
                     if let Some(module) = self.modules.get(module_name) {
-                        module.borrow_mut().execute_value(payload)
+                        module
+                            .deref()
+                            .borrow_mut()
+                            .execute_value(deps, env, info, payload)
                     } else {
                         let err = Error::NotFoundError {
                             module: module_name.to_string(),
@@ -72,7 +82,7 @@ impl Manager {
 
     /// Dispatch a JSON-encoded query message to the appropriate module
     /// registered within the `Manager` instance.
-    pub fn query(&mut self, msg: &str) -> StdResult<Binary> {
+    pub fn query(&mut self, deps: &Deps, env: Env, msg: &str) -> StdResult<Binary> {
         let val: Value =
             serde_json::from_str(msg).map_err(|e| StdError::generic_err(e.to_string()))?;
         if let Object(obj) = val {
@@ -80,7 +90,7 @@ impl Manager {
             match &vals[..] {
                 [(module_name, payload)] => {
                     if let Some(module) = self.modules.get(module_name) {
-                        module.borrow_mut().query_value(payload)
+                        module.borrow().query_value(deps, env, payload)
                     } else {
                         let err = Error::NotFoundError {
                             module: module_name.to_string(),
@@ -103,14 +113,23 @@ impl Manager {
 
     /// Dispatch JSON-encoded instantiate messages to modules registered within
     /// the Manager.
-    pub fn initialize(&mut self, msgs: &str) -> Result<Value, String> {
+    pub fn instantiate(
+        &mut self,
+        mut deps: DepsMut,
+        env: Env,
+        info: MessageInfo,
+        msgs: &str,
+    ) -> Result<Value, String> {
         let val: Value = serde_json::from_str(msgs).map_err(|e| e.to_string())?;
         if let Object(obj) = val {
             let vals: Vec<(String, Value)> = obj.into_iter().collect();
             let mut result: Map<String, Value> = Map::new();
             for (module_name, payload) in &vals {
                 if let Some(module) = self.modules.get(module_name) {
-                    let module_result = module.borrow_mut().instantiate_value(payload)?;
+                    let module_result = module
+                        .deref()
+                        .borrow_mut()
+                        .instantiate_value(&mut deps, &env, &info, payload)?;
                     result.insert(module_name.clone(), module_result);
                 } else {
                     let err = Error::NotFoundError {
