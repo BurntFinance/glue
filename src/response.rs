@@ -61,6 +61,8 @@ impl Default for Response {
 }
 
 impl Response {
+    /// Create a new response. Modules written with glue should always create glue Responses rather
+    /// than cosmwasm_std::Response.
     pub fn new() -> Self {
         Self::default()
     }
