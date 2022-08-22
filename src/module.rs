@@ -1,6 +1,7 @@
 //! Traits for reusable, composable CosmWasm modules.
 
-use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult};
+use crate::response::Response;
+use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, StdError, StdResult};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fmt::Display;
@@ -15,8 +16,6 @@ use std::fmt::Display;
 pub trait Module {
     /// The message sent to the module to instantiate its state.
     type InstantiateMsg: for<'a> Deserialize<'a>;
-    /// The response returned by the module after instantiating its state.
-    type InstantiateResp: Serialize;
     /// The type of transaction messages this module can handle. For modules
     /// that support multiple types of transaction, this will often times be
     /// a sum type.
@@ -38,7 +37,7 @@ pub trait Module {
         env: &Env,
         info: &MessageInfo,
         msg: Self::InstantiateMsg,
-    ) -> Result<Self::InstantiateResp, Self::Error>;
+    ) -> Result<Response, Self::Error>;
     /// The transaction handler for this module. Messages to this contract
     /// will be dispatched by the Manager.
     fn execute(
@@ -72,7 +71,7 @@ pub trait GenericModule {
         env: &Env,
         info: &MessageInfo,
         msg: &Value,
-    ) -> Result<Value, String>;
+    ) -> Result<Response, String>;
     /// A generic implementation of Module::execute
     fn execute_value(
         &mut self,
@@ -86,22 +85,14 @@ pub trait GenericModule {
 }
 
 /// An implementation of GenericModule for all valid implementations of Module.
-impl<T, A, B, C, D, E, F> GenericModule for T
+impl<T, A, B, C, D, E> GenericModule for T
 where
     A: for<'de> Deserialize<'de>,
-    B: Serialize,
+    B: for<'de> Deserialize<'de>,
     C: for<'de> Deserialize<'de>,
-    D: for<'de> Deserialize<'de>,
-    E: Serialize,
-    F: Display,
-    T: Module<
-        InstantiateMsg = A,
-        InstantiateResp = B,
-        ExecuteMsg = C,
-        QueryMsg = D,
-        QueryResp = E,
-        Error = F,
-    >,
+    D: Serialize,
+    E: Display,
+    T: Module<InstantiateMsg = A, ExecuteMsg = B, QueryMsg = C, QueryResp = D, Error = E>,
 {
     fn instantiate_value(
         &mut self,
@@ -109,12 +100,10 @@ where
         env: &Env,
         info: &MessageInfo,
         msg: &Value,
-    ) -> Result<Value, String> {
+    ) -> Result<Response, String> {
         let parsed_msg = serde_json::from_value(msg.clone()).map_err(|e| e.to_string())?;
-        let res = self
-            .instantiate(deps, env, info, parsed_msg)
-            .map_err(|e| e.to_string())?;
-        serde_json::to_value(res).map_err(|e| e.to_string())
+        self.instantiate(deps, env, info, parsed_msg)
+            .map_err(|e| e.to_string())
     }
 
     fn execute_value(

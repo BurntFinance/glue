@@ -52,6 +52,7 @@
 pub mod error;
 pub mod manager;
 pub mod module;
+pub mod response;
 
 #[cfg(test)]
 mod tests {

@@ -2,18 +2,20 @@
 //! to modules registered to it.
 
 use crate::error::Error;
-use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult};
+use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, StdError, StdResult};
+use serde_json::Value;
 use serde_json::Value::Object;
-use serde_json::{Map, Value};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
 
 use crate::module::GenericModule;
+use crate::response::Aggregator;
 
 /// A struct that will dynamically dispatch messages to modules registered
 /// within it.
+#[derive(Default)]
 pub struct Manager {
     modules: HashMap<String, Rc<RefCell<dyn GenericModule>>>,
 }
@@ -21,9 +23,7 @@ pub struct Manager {
 impl Manager {
     /// Create a new Manager with no modules registered to it.
     pub fn new() -> Self {
-        Manager {
-            modules: HashMap::new(),
-        }
+        Self::default()
     }
 
     /// Register a module, `module`, to the manager under the name `name`.
@@ -49,7 +49,7 @@ impl Manager {
         env: Env,
         info: MessageInfo,
         msg: &str,
-    ) -> Result<Response, String> {
+    ) -> Result<cosmwasm_std::Response<Binary>, String> {
         let val: Value = serde_json::from_str(msg).map_err(|e| e.to_string())?;
         if let Object(obj) = val {
             let vals: Vec<(String, Value)> = obj.into_iter().collect();
@@ -60,6 +60,7 @@ impl Manager {
                             .deref()
                             .borrow_mut()
                             .execute_value(deps, env, info, payload)
+                            .map(|x| x.into())
                     } else {
                         let err = Error::NotFoundError {
                             module: module_name.to_string(),
@@ -119,18 +120,18 @@ impl Manager {
         env: Env,
         info: MessageInfo,
         msgs: &str,
-    ) -> Result<Value, String> {
+    ) -> Result<cosmwasm_std::Response<Binary>, String> {
+        let mut aggregator: Aggregator = Aggregator::new();
         let val: Value = serde_json::from_str(msgs).map_err(|e| e.to_string())?;
         if let Object(obj) = val {
             let vals: Vec<(String, Value)> = obj.into_iter().collect();
-            let mut result: Map<String, Value> = Map::new();
             for (module_name, payload) in &vals {
                 if let Some(module) = self.modules.get(module_name) {
-                    let module_result = module
+                    let resp = module
                         .deref()
                         .borrow_mut()
                         .instantiate_value(&mut deps, &env, &info, payload)?;
-                    result.insert(module_name.clone(), module_result);
+                    aggregator.fold_response(module_name.clone(), resp);
                 } else {
                     let err = Error::NotFoundError {
                         module: module_name.to_string(),
@@ -138,7 +139,7 @@ impl Manager {
                     return Err(format!("{:?}", err));
                 }
             }
-            Ok(Object(result))
+            Ok(aggregator.aggregate())
         } else {
             let err = Error::ParseError { msg: None };
             Err(format!("{:?}", err))
