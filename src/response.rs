@@ -14,7 +14,7 @@ impl Aggregator {
         Self::default()
     }
 
-    pub fn fold_response(&mut self, module: String, resp: Response) {
+    pub fn fold_response(&mut self, module: String, resp: Response<Binary>) {
         self.data.insert(module, resp.data);
         self.resp
             .events
@@ -45,13 +45,13 @@ impl Default for Aggregator {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct Response {
-    pub response: cosmwasm_std::Response<Binary>,
+#[derive(Debug, PartialEq, Clone)]
+pub struct Response<T> {
+    pub response: cosmwasm_std::Response<T>,
     pub data: Value,
 }
 
-impl Default for Response {
+impl<T> Default for Response<T> {
     fn default() -> Self {
         Response {
             response: cosmwasm_std::Response::new(),
@@ -60,7 +60,7 @@ impl Default for Response {
     }
 }
 
-impl Response {
+impl<T> Response<T> {
     /// Create a new response. Modules written with glue should always create glue Responses rather
     /// than cosmwasm_std::Response.
     pub fn new() -> Self {
@@ -201,9 +201,26 @@ impl Response {
     }
 }
 
-impl From<Response> for cosmwasm_std::Response<Binary> {
-    fn from(r: Response) -> Self {
-        let mut cr = cosmwasm_std::Response::new();
+// impl From<Response> for cosmwasm_std::Response<Binary> {
+//     fn from(r: Response) -> Self {
+//         let mut cr = cosmwasm_std::Response::new();
+//         cr.data = match r.data {
+//             Null => None,
+//             data => {
+//                 let bs = serde_json::to_vec(&data).unwrap();
+//                 Some(bs.into())
+//             }
+//         };
+//         cr.messages = r.response.messages;
+//         cr.attributes = r.response.attributes;
+//         cr.events = r.response.events;
+//         cr
+//     }
+// }
+
+impl<T> From<Response<T>> for cosmwasm_std::Response<T> {
+    fn from(r: Response<T>) -> Self {
+        let mut cr : cosmwasm_std::Response<T> = cosmwasm_std::Response::new();
         cr.data = match r.data {
             Null => None,
             data => {
